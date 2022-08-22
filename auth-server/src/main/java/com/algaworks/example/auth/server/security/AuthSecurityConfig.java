@@ -4,6 +4,8 @@ import java.io.InputStream;
 import java.security.KeyStore;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +16,9 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
@@ -25,8 +30,12 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.config.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.config.ProviderSettings;
 import org.springframework.security.oauth2.server.authorization.config.TokenSettings;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 
+import com.algaworks.example.auth.server.domain.UserEntity;
+import com.algaworks.example.auth.server.domain.UserRepository;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -48,6 +57,31 @@ public class AuthSecurityConfig {
 		http.authorizeHttpRequests().anyRequest().authenticated();
 		return http.formLogin(Customizer.withDefaults()).build();
 	}
+	
+	@Bean
+	public OAuth2TokenCustomizer<JwtEncodingContext> jwtEncodingContextOAuth2TokenCustomizer(UserRepository userRepository) {
+		return (context -> {
+			Authentication authentication = context.getPrincipal();
+			
+			if (authentication.getPrincipal() instanceof User) {
+				
+				final User user = (User) authentication.getPrincipal();
+				
+				final UserEntity userEntity = userRepository.findByEmail(user.getUsername()).orElseThrow();
+				
+				Set<String> authorities = new HashSet<>();
+				
+				for (GrantedAuthority authority : user.getAuthorities()) {
+					authorities.add(authority.toString());
+				} 
+				
+				context.getClaims().claim("user_id", userEntity.getId().toString());
+				context.getClaims().claim("user_fullname", userEntity.getName());
+				context.getClaims().claim("authorities", authorities);
+			}
+			
+		});
+	}
 
 	@Bean
 	public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder) {
@@ -59,9 +93,38 @@ public class AuthSecurityConfig {
 				.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
 				.scope("users:read")
 				.scope("users:write")
-				.tokenSettings(TokenSettings.builder().accessTokenTimeToLive(Duration.ofMinutes(5)).build())
-				.clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).build()).build();
-		return new InMemoryRegisteredClientRepository(Arrays.asList(awuserClient));
+				.tokenSettings(TokenSettings.builder()
+						.accessTokenTimeToLive(Duration.ofMinutes(5))
+						.build())
+				.clientSettings(ClientSettings.builder()
+						.requireAuthorizationConsent(false)
+						.build())
+				.build();
+		
+		RegisteredClient awblogClient = RegisteredClient
+				.withId("2")
+				.clientId("awblog")
+				.clientSecret(passwordEncoder.encode("123456"))
+				.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+				.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+				.authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+				.redirectUri("http://localhost:3000/authorized")
+				.redirectUri("https://oidcdebugger.com/debug")
+				.redirectUri("https://oauth.pstm.io/v1/callback")
+				.scope("myuser:read")
+				.scope("myuser:write")
+				.scope("posts:write")
+				.tokenSettings(TokenSettings.builder()
+						.accessTokenTimeToLive(Duration.ofMinutes(15))
+						.refreshTokenTimeToLive(Duration.ofDays(1))
+						.reuseRefreshTokens(false)
+						.build())
+				.clientSettings(ClientSettings.builder()
+						.requireAuthorizationConsent(true)
+						.build())
+				.build();
+				
+		return new InMemoryRegisteredClientRepository(Arrays.asList(awuserClient, awblogClient));
 	}
 
 	@Bean
