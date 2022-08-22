@@ -41,7 +41,7 @@ public class UserSecurityConfig {
 			List<String> userRoleAuthorities = jwt.getClaimAsStringList("authorities");
 			
 			if (userRoleAuthorities == null) {
-				return Collections.emptyList();
+				userRoleAuthorities = Collections.emptyList();
 			}
 			
 			JwtGrantedAuthoritiesConverter scopesConverter = new JwtGrantedAuthoritiesConverter();
