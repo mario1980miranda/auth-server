@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,9 +27,11 @@ import java.util.stream.Collectors;
 public class UserController {
 	
 	private final UserRepository userRepository;
+	private final PasswordEncoder passwordEncoder;
 
-	public UserController(UserRepository userRepository) {
+	public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
 		this.userRepository = userRepository;
+		this.passwordEncoder = passwordEncoder;
 	}
 
 	@GetMapping
@@ -46,6 +49,8 @@ public class UserController {
 	@ResponseStatus(HttpStatus.CREATED)
 	@CanWriteUsers
 	public UserResponse create(@RequestBody @Valid UserRequest userRequest) {
+		var passencoded = this.passwordEncoder.encode(userRequest.getPassword());
+		userRequest.setPassword(passencoded);
 		return UserResponse.of(userRepository.save(userRequest.toEntity()));
 	}
 
