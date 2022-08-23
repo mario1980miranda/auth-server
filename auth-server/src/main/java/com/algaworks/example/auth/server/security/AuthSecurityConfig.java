@@ -3,7 +3,6 @@ package com.algaworks.example.auth.server.security;
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -12,6 +11,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcOperations;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -24,7 +25,11 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
-import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.ClientSettings;
@@ -84,7 +89,7 @@ public class AuthSecurityConfig {
 	}
 
 	@Bean
-	public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder) {
+	public RegisteredClientRepository registeredClientRepository(PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate) {
 		RegisteredClient awuserClient = RegisteredClient
 				.withId("1")
 				.clientId("awuser")
@@ -124,7 +129,23 @@ public class AuthSecurityConfig {
 						.build())
 				.build();
 				
-		return new InMemoryRegisteredClientRepository(Arrays.asList(awuserClient, awblogClient));
+		var clientRepository = new JdbcRegisteredClientRepository(jdbcTemplate);
+//		clientRepository.save(awblogClient);
+//		clientRepository.save(awuserClient);
+		
+		return clientRepository; 
+	}
+	
+	@Bean
+	public OAuth2AuthorizationService auth2AuthorizationService(JdbcOperations jdbcOperations,
+			RegisteredClientRepository registeredClientRepository) {
+		return new JdbcOAuth2AuthorizationService(jdbcOperations, registeredClientRepository);
+	}
+
+	@Bean
+	public OAuth2AuthorizationConsentService auth2AuthorizationConsentService(JdbcOperations jdbcOperations,
+			RegisteredClientRepository registeredClientRepository) {
+		return new JdbcOAuth2AuthorizationConsentService(jdbcOperations, registeredClientRepository);
 	}
 
 	@Bean
