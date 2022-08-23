@@ -1,5 +1,15 @@
 # auth-server
 
+## Generate jks keypair
+```
+keytool -genkeypair -alias awblog -keyalg RSA -keypass 123456 -keystore awblog.jks -storepass 123456 -validity 3560
+```
+
+## Verify keys
+```
+keytool -list -keystore awblog.jks
+```
+
 ## Github Spring Authorization Server
 ```
 https://github.com/spring-projects/spring-authorization-server
