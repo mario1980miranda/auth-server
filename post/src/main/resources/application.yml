@@ -1,19 +1,35 @@
 spring:
   datasource:
-    username: root
-    url: jdbc:mysql://localhost:3306/post?createDatabaseIfNotExist=true&serverTimezone=UTC
-    password:
+    username: postgres
+    url: jdbc:postgresql://localhost:5432/user
+    password: admin123
   jpa:
     show-sql: 'true'
+    databasePlatform: "org.hibernate.dialect.PostgreSQLDialect"
     hibernate:
       ddl-auto: update
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8082
+      client:
+        registration:
+          awuser-client:
+            provider: auth
+            client-id: awuser
+            client-secret: 123456
+            authorization-grant-type: client_credentials
+            scope: users:read
+            client-name: awuser-client
+        provider:
+          auth:
+            issuer-uri: http://localhost:8082
+      
 server:
   port: 8081
-  
+
 aw:
   user-api:
     url: 'http://localhost:8080'
     encoded-credentials: 'YWRtaW5AZW1haWwuY29tOmFkbWlu'
-
-
-
